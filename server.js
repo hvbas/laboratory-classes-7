@@ -4,6 +4,7 @@ const path = require("path");
 
 const { PORT } = require("./config");
 const logger = require("./utils/logger");
+const { connectToDatabase } = require('./database');
 const productsRoutes = require("./routing/products");
 const logoutRoutes = require("./routing/logout");
 const killRoutes = require("./routing/kill");
@@ -31,17 +32,31 @@ app.use("/products", productsRoutes);
 app.use("/logout", logoutRoutes);
 app.use("/kill", killRoutes);
 app.use(homeRoutes);
-app.use((request, response) => {
-  const { url } = request;
-  const cartCount = cartController.getProductsCount();
+app.use(async (request, response) => {
+  try {
+    const { url } = request;
+    const cartCount = await cartController.getProductsCount();
 
-  response.status(STATUS_CODE.NOT_FOUND).render("404", {
-    headTitle: "404",
-    menuLinks: MENU_LINKS,
-    activeLinkPath: "",
-    cartCount,
-  });
-  logger.getErrorLog(url);
+    response.status(STATUS_CODE.NOT_FOUND).render("404", {
+      headTitle: "404",
+      menuLinks: MENU_LINKS,
+      activeLinkPath: "",
+      cartCount,
+    });
+    logger.getErrorLog(url);
+  } catch (error) {
+    console.error('Error in 404 handler:', error);
+    response.status(STATUS_CODE.INTERNAL_SERVER_ERROR).send('Something went wrong!');
+  }
 });
 
-app.listen(PORT);
+// Connect to MongoDB and start the server
+connectToDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Failed to connect to MongoDB', err);
+  });
